@@ -1,0 +1,7 @@
+.chroma {
+    background-color: unset;
+}
+
+pre, code {
+  font-family: "Iosevka Light", Monospace;
+}
