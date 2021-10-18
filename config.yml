@@ -25,10 +25,10 @@ params:
     title: "MindFlavor's blog"
     description: "Yes, it's another boring dev blog."
     keywords: [Blog, MindFlavor, Rust, PaperMod]
-    author: "Francesco Cogno"
+    author: ["Francesco Cogno"]
     # author: ["Me", "You"] # multiple authors
-    images: ["<link or path of image for opengraph, twitter-cards>"]
-    DateFormat: "January 2, 2006"
+    images: ["/static/images/"]
+    DateFormat: "2 January 2006"
     defaultTheme: auto # dark, light
     disableThemeToggle: false
 
@@ -46,7 +46,7 @@ params:
     tocopen: false
 
     assets:
-        disableHLJS: false # to disable highlight.js
+        disableHLJS: true # to disable highlight.js
         # disableFingerprinting: true
         favicon: "<link / abs url>"
         favicon16x16: "<link / abs url>"
@@ -56,21 +56,21 @@ params:
 
     label:
         text: "Home"
-        icon: images/mind.jpg
+        icon: "../../images/mind.jpg"
         iconHeight: 35
 
     # profile-mode
     profileMode:
         enabled: true # needs to be explicitly set
         title: "MindFlavor's blog"
-        subtitle: "Yes, it's another boring dev blog"
+        subtitle: "Yes, it's yet another boring dev blog."
         imageUrl: "images/mind.jpg"
         imageWidth: 120
         imageHeight: 120
         imageTitle: Francesco Cogno
         buttons:
             - name: Posts
-              url: blog
+              url: posts
             - name: Tags
               url: tags
             - name: Search
@@ -103,9 +103,9 @@ params:
           #        SiteVerificationTag: "XYZabc"
 
     cover:
-        hidden: true # hide everywhere but not in structured data
-        hiddenInList: true # hide on list pages and home
-        hiddenInSingle: true # hide on single page
+        hidden: false # hide everywhere but not in structured data
+        hiddenInList: false # hide on list pages and home
+        hiddenInSingle: false # hide on single page
 
     editPost:
         URL: "https://github.com/mindflavor/personal_blog"
@@ -134,11 +134,11 @@ menu:
           weight: 30
 
 # Read: https://github.com/adityatelange/hugo-PaperMod/wiki/FAQs#using-hugos-syntax-highlighter-chroma
-pygmentsUseClasses: false
+pygmentsUseClasses: true
 markup:
     highlight:
         anchorLineNos: false
         codeFences: true
         guessSyntax: false
         lineNos: true
-        style: "solarized-dark"
+        style: "solarized-light"
