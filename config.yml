@@ -1,4 +1,4 @@
-baseURL: "https://mindflavor.pages.dev"
+baseURL: "https://blog.mindflavor.it"
 title: "MindFlavor's blog"
 paginate: 5
 theme: PaperMod
@@ -108,7 +108,7 @@ params:
         hiddenInSingle: false # hide on single page
 
     editPost:
-        URL: "https://github.com/mindflavor/personal_blog"
+        URL: "https://github.com/mindflavor/personal_blog/blob/main/content"
         Text: "Suggest Changes" # edit text
         appendFilePath: true # to append file path to Edit link
 
