@@ -1,0 +1,3 @@
+User-agent: *
+Disallow:
+Sitemap: https://blog.mindflavor.it/sitemap.xml

@@ -1,0 +1,1004 @@
+<!doctype html><html lang=en dir=auto>
+<head><meta charset=utf-8>
+<meta http-equiv=x-ua-compatible content="IE=edge">
+<meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no">
+<meta name=robots content="index, follow">
+<title>Let's build Zork using Rust! | MindFlavor's blog</title>
+<meta name=keywords content="rust,statemachine,codeforfun">
+<meta name=description content="A simple state machine game in Rust">
+<meta name=author content="Francesco Cogno">
+<link rel=canonical href=https://blog.mindflavor.it/posts/zork-rust/>
+<link crossorigin=anonymous href=/assets/css/stylesheet.min.05f1393ad9f0b63f4f0867b97240e342afb38cd9950b6350071b01e94b52726f.css integrity="sha256-BfE5Otnwtj9PCGe5ckDjQq+zjNmVC2NQBxsB6UtScm8=" rel="preload stylesheet" as=style>
+<link rel=preload href=../../images/mind.jpg as=image>
+<link rel=icon href=https://blog.mindflavor.it/%3Clink%20/%20abs%20url%3E>
+<link rel=icon type=image/png sizes=16x16 href=https://blog.mindflavor.it/%3Clink%20/%20abs%20url%3E>
+<link rel=icon type=image/png sizes=32x32 href=https://blog.mindflavor.it/%3Clink%20/%20abs%20url%3E>
+<link rel=apple-touch-icon href=https://blog.mindflavor.it/%3Clink%20/%20abs%20url%3E>
+<link rel=mask-icon href=https://blog.mindflavor.it/%3Clink%20/%20abs%20url%3E>
+<meta name=theme-color content="#2e2e33">
+<meta name=msapplication-TileColor content="#2e2e33">
+<meta name=generator content="Hugo 0.88.0">
+<noscript>
+<style>#theme-toggle,.top-link{display:none}</style>
+<style>@media(prefers-color-scheme:dark){:root{--theme:rgb(29, 30, 32);--entry:rgb(46, 46, 51);--primary:rgb(218, 218, 219);--secondary:rgb(155, 156, 157);--tertiary:rgb(65, 66, 68);--content:rgb(196, 196, 197);--hljs-bg:rgb(46, 46, 51);--code-bg:rgb(55, 56, 62);--border:rgb(51, 51, 51)}.list{background:var(--theme)}.list:not(.dark)::-webkit-scrollbar-track{background:0 0}.list:not(.dark)::-webkit-scrollbar-thumb{border-color:var(--theme)}}</style>
+</noscript><meta property="og:title" content="Let's build Zork using Rust!">
+<meta property="og:description" content="A simple state machine game in Rust">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://blog.mindflavor.it/posts/zork-rust/">
+<meta property="og:image" content="https://blog.mindflavor.it/images/zork-rust/zork-rust.png"><meta property="article:section" content="posts">
+<meta property="article:published_time" content="2018-01-17T00:00:00+00:00">
+<meta property="article:modified_time" content="2018-01-17T00:00:00+00:00"><meta property="og:site_name" content="MindFlavor's blog">
+<meta name=twitter:card content="summary_large_image">
+<meta name=twitter:image content="https://blog.mindflavor.it/images/zork-rust/zork-rust.png">
+<meta name=twitter:title content="Let's build Zork using Rust!">
+<meta name=twitter:description content="A simple state machine game in Rust">
+<script type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":2,"name":"Posts","item":"https://blog.mindflavor.it/posts/"},{"@type":"ListItem","position":3,"name":"Let's build Zork using Rust!","item":"https://blog.mindflavor.it/posts/zork-rust/"}]}</script>
+<script type=application/ld+json>{"@context":"https://schema.org","@type":"BlogPosting","headline":"Let's build Zork using Rust!","name":"Let\u0027s build Zork using Rust!","description":"A simple state machine game in Rust","keywords":["rust","statemachine","codeforfun"],"articleBody":"Games like Zork are basically big state machines. You advance in the game performing actions that lead your character from situation to situation. Eventually you either die horribly or win the game. The purpose of this post is to build a - simplified - textual game. We use it as a pretext to explore one way of treating state machines using Rust (yes, it’s a clickbaity title)…\nState machines in Rust There are various ways to model a state machine in Rust. Today we build on top of a gorgeous idea by Florian Gilcher (you can see his original tweet here: https://twitter.com/Argorak/status/940221231709683713). Basically he suggests to model state passing around functions pointers. This works beautifully because you end up splitting your states in different functions instead of having a huge match statement.\nLet’s see some code first. We will comment it afterwards.\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21  #[derive(Debug)]struct Machine;struct StateFn(fn(\u0026mutMachine)- StateFn);implMachine{fn start(\u0026mutself)- StateFn{println!(\"start\");StateFn(Self::state)}fn state(\u0026mutself)- StateFn{println!(\"state\");StateFn(Self::end)}fn end(\u0026mutself)- StateFn{println!(\"end\");StateFn(Self::end)}}  Here we have a struct called Machine which will hold some information that will be hard to model as a state machine (empty in our case). We also define another struct, StateFn, which holds the current state (expressed as a function). The convention, here, is that each state function will accept a mutable reference of Machine and will spit out the next state.\nThe syntax might be baffling at first so let’s take a look at it. This line:\n1  struct StateFn(fn(\u0026mutMachine)- StateFn);  Reads: create a struct called StateFn. This struct will have one implicit field. This field will accept only function pointers. The function pointed must have a single parameter - mutable reference of Machine - and will return a owned StateFn.\nThe state machine depicted above is this one:\nTo “run” it we can use this simple code:\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17  fn main(){letmutm=Machine;letmutc=StateFn(Machine::start);println!(\"m == {:?}\",m);c=c.0(\u0026mutm);println!(\"m == {:?}\",m);c=c.0(\u0026mutm);println!(\"m == {:?}\",m);c=c.0(\u0026mutm);println!(\"m == {:?}\",m);c=c.0(\u0026mutm);println!(\"m == {:?}\",m);}  The c.0() syntax allows us to extract the first implicit field of StateFn and call it as a function. We pass the function our world state which is a Machine instance. Reassigning our StateFn binding simulates the evolution of the state machine. We can remove that .0 function call implementing Deref.\nDeref Florian Gilcher gives us an elegant solution to get rid of the c.0() dereference. Rust allows us to implement custom deref behavior using the Deref trait. Let’s do this:\n1 2 3 4 5 6 7  implDerefforStateFn{type Target=fn(\u0026mutMachine)- StateFn;fn deref(\u0026self)- \u0026Self::Target{\u0026self.0}}  With this code we can simplify this call:\n1  c=c.0(\u0026mutm);  with this one:\n1  c=c(\u0026mutm);  So, to recap, we pass around functions that represent our state in the state machine. The functions will manipulate our world. With this information we can implement our Zork clone!\nThe game The game will be very simple: there will be just three rooms. This is the state machine of our game:\nHere we have two “game-related” variables:\n Player owns the key or not Player has opened the door or not  Also, to give interactivity, we store in our “world” the command input by the player. Each state can inspect the command issued and act accordingly. For example we have a magic fountain in a room. The player may issue: “drink from the fountain”. If we are in the right room we can let the avatar drink from the fountain. The same command can be invalid in another room though. Lastly we store the player name.\nWe can model it just like this:\n1 2 3 4 5 6 7 8 9 10 11 12  #[derive(Debug)]struct Player{name: String,has_key: bool,}#[derive(Debug)]struct Game{player: Player,last_command: String,door_locked: bool,}  Notice we have both “game-related” variables and “technical” variables jumbled together. This might not be desiderable: we could rid of the “game-related” variable by replacing them via specialized states. For example, instead of having a single room state we can have room_door_locked and room_door_unlocked. Something like this:\nThe text processor In order to build a text-based game you have to handle free form text. Given this is a sample of a Rust state machine I will cheat and just match predefined strings. For example the room with the key can be written like this:\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25  fn key_room_with_key(\u0026mutself)- StateStructGame{match\u0026self.last_commandas\u0026str{\"\"={println!(\"You are in a dark room.\");StateStruct::input_required(Self::key_room_with_key)}\"inspect\"={println!(\"You are in a dark room. You see a key on the floor.\");StateStruct::input_required(Self::key_room_with_key)}\"pick up the key\"={println!(\"You gingerly pick up the key and store it for later use.\");self.player.has_key=true;StateStruct::input_required(Self::key_room_empty)}\"go back\"={println!(\"You go back in the hallway.\");StateStruct::no_input_required(Self::hallway)}_={println!(\"I don't know how to do that! What do you want to do?\");StateStruct::input_required(Self::key_room_with_key)}}}  As you can see we just match for specific input strings. Remember, the last received command will be in the last_command field. We than do three things:\n Print something to give feedback to the user. Change the world (optional) modifying our mutable reference. Move to the new state. Here we use two helper functions, input_required and no_input_required to signal if we have to wait for player input before activating the new state.  Main The main method is just a loop. We start the state machine in the start state and play the state machine until we reach the end state. The main loop is oblivious of what’s happening in the state machine, the state transition happen as result of state execution.\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28  fn main(){usestd::io::Write;letmutgame=Game::default();// start the state machine. letmutsf=StateStruct::no_input_required(Game::start);// process the start state and progress to the next state. sf=sf(\u0026mutgame);// we play the machine until its end. while!sf.completed{// if the state requires input we ask the player to supply it. ifsf.requires_input{letmutbuffer=String::new();print!(\" \");::std::io::stdout().flush().unwrap();::std::io::stdin().read_line(\u0026mutbuffer).unwrap();game.last_command=buffer[0..buffer.len()-1].to_owned();}else{game.last_command=\"\".to_owned();}// now we play the next state and advance the machine. sf=sf(\u0026mutgame);}}  As you can see the main code is straightforward.\nWrapping up Now all we have to do is to implement the states our game will handle. The following complete code will implement the diagram above. Can you complete the dungeon without dying? Also, can you devise a more challenging dungeon to play? Let me know!\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100 101 102 103 104 105 106 107 108 109 110 111 112 113 114 115 116 117 118 119 120 121 122 123 124 125 126 127 128 129 130 131 132 133 134 135 136 137 138 139 140 141 142 143 144 145 146 147 148 149 150 151 152 153 154 155 156 157 158 159 160 161 162 163 164 165 166 167 168 169 170 171 172 173 174 175 176 177 178 179 180 181 182 183 184 185 186 187 188 189 190 191 192 193 194 195 196 197 198 199 200 201 202 203 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 222 223 224 225 226 227 228 229 230 231 232 233 234 235 236 237 238 239 240 241 242 243 244 245 246 247 248 249 250 251 252 253 254 255 256 257 258 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273  usestd::ops::Deref;type StateFnT=fn(\u0026mutT)- StateStructT;struct StateStructT{function: StateFnT,requires_input: bool,completed: bool,}implTStateStructT{fn new(function: StateFnT,requires_input: bool,completed: bool)- StateStructT{StateStruct{function: function,requires_input: requires_input,completed: completed,}}fn input_required(function: StateFnT)- StateStructT{StateStruct::new(function,true,false)}fn no_input_required(function: StateFnT)- StateStructT{StateStruct::new(function,false,false)}fn completed(function: StateFnT)- StateStructT{StateStruct::new(function,false,true)}}implTDerefforStateStructT{type Target=StateFnT;fn deref(\u0026self)- \u0026Self::Target{\u0026self.function}}#[derive(Debug)]struct Player{name: String,has_key: bool,}#[derive(Debug)]struct Game{player: Player,last_command: String,door_locked: bool,}impl::std::default::DefaultforGame{fn default()- Self{Game{player: Player{name: \"\".to_owned(),has_key: false,},door_locked: true,last_command: \"\".to_owned(),}}}implGame{fn reset(\u0026mutself){self.player.has_key=false;self.door_locked=true;}fn start(\u0026mutself)- StateStructGame{println!(\"You wake up in hallway. Your memory is fuzzy... What's your name?\");StateStruct::input_required(Self::save_name)}fn end(\u0026mutself)- StateStructGame{println!(\"You eneded the game! {} wins! Congrats!\",self.player.name);StateStruct::completed(Self::end)}fn save_name(\u0026mutself)- StateStructGame{::std::mem::swap(\u0026mutself.player.name,\u0026mutself.last_command);println!(\"Yes, that's right! You are {}!\",self.player.name);StateStruct::no_input_required(Self::hallway)}fn hallway(\u0026mutself)- StateStructGame{match\u0026self.last_commandas\u0026str{\"\"={println!(\"You are in a hallway. You can inspect it, go left or right.\");StateStruct::input_required(Self::hallway)}\"inspect\"={println!(\"You are in a hallway. It's unremarkable. You can go either right or left.\");StateStruct::input_required(Self::hallway)}\"go left\"={println!(\"You run left until you reach a dead end.\");if!self.player.has_key{StateStruct::no_input_required(Self::key_room_with_key)}else{StateStruct::no_input_required(Self::key_room_empty)}}\"go right\"={println!(\"You run left until you reach a dead end.\");ifself.door_locked{StateStruct::no_input_required(Self::door_room_locked)}else{StateStruct::no_input_required(Self::door_room_unlocked)}}_={println!(\"I don't know how to do that! What do you want to do?\");StateStruct::input_required(Self::hallway)}}}fn key_room_with_key(\u0026mutself)- StateStructGame{match\u0026self.last_commandas\u0026str{\"\"={println!(\"You are in a dark room.\");StateStruct::input_required(Self::key_room_with_key)}\"inspect\"={println!(\"You are in a dark room. You see a key on the floor.\");StateStruct::input_required(Self::key_room_with_key)}\"pick up the key\"={println!(\"You gingerly pick up the key and store it for later use.\");self.player.has_key=true;StateStruct::input_required(Self::key_room_empty)}\"go back\"={println!(\"You go back in the hallway.\");StateStruct::no_input_required(Self::hallway)}_={println!(\"I don't know how to do that! What do you want to do?\");StateStruct::input_required(Self::key_room_with_key)}}}fn key_room_empty(\u0026mutself)- StateStructGame{match\u0026self.last_commandas\u0026str{\"\"={println!(\"You are in a dark room.\");StateStruct::input_required(Self::key_room_empty)}\"inspect\"={println!(\"You look around but there is nothing worth mentioning.\");StateStruct::input_required(Self::key_room_empty)}\"pick up the key\"={println!(\"There is no key to pick up!\");StateStruct::input_required(Self::key_room_empty)}\"go back\"={println!(\"You go back in the hallway.\");StateStruct::no_input_required(Self::hallway)}_={println!(\"I don't know how to do that! What do you want to do?\");StateStruct::input_required(Self::key_room_empty)}}}fn door_room_locked(\u0026mutself)- StateStructGame{match\u0026self.last_commandas\u0026str{\"\"={println!(\"You are in a dimly lit room.\");StateStruct::input_required(Self::door_room_locked)}\"inspect\"={println!(\"You are in a dimly lit room. You notice a sickly looking fountain and a door.\");StateStruct::input_required(Self::door_room_locked)}\"drink from the fountain\"={println!(\"You drink the water and drop dead immediately. Tough luck!\");self.reset();StateStruct::no_input_required(Self::start)}\"unlock the door\"={ifself.player.has_key{println!(\"You use your key to unlock the door.\");self.door_locked=false;StateStruct::input_required(Self::door_room_unlocked)}else{println!(\"You do not have a key to use!\");StateStruct::input_required(Self::door_room_locked)}}\"open the door\"={println!(\"The door is locked! You must find a key first!\");StateStruct::input_required(Self::door_room_locked)}\"go back\"={println!(\"You go back in the hallway.\");StateStruct::no_input_required(Self::hallway)}_={println!(\"I don't know how to do that! What do you want to do?\");StateStruct::input_required(Self::door_room_locked)}}}fn door_room_unlocked(\u0026mutself)- StateStructGame{match\u0026self.last_commandas\u0026str{\"\"={println!(\"You are in a dimly lit room.\");StateStruct::input_required(Self::door_room_unlocked)}\"inspect\"={println!(\"You are in a dimly lit room. You notice a sickly looking fountain and an already unlocked door.\");StateStruct::input_required(Self::door_room_unlocked)}\"drink from the fountain\"={println!(\"You drink the water and drop dead immediately. Tough luck!\");self.reset();StateStruct::no_input_required(Self::start)}\"unlock the door\"={println!(\"The door is already unlocked!\");StateStruct::input_required(Self::door_room_unlocked)}\"open the door\"={println!(\"You open the door and escape the dungeon!\",);StateStruct::no_input_required(Self::end)}\"go back\"={println!(\"You go back in the hallway.\");StateStruct::no_input_required(Self::hallway)}_={println!(\"I don't know how to do that! What do you want to do?\");StateStruct::input_required(Self::door_room_unlocked)}}}}fn main(){usestd::io::Write;letmutgame=Game::default();letmutsf=StateStruct::no_input_required(Game::start);sf=sf(\u0026mutgame);while!sf.completed{// println!(\"game == {:?}\", game); ifsf.requires_input{letmutbuffer=String::new();print!(\" \");::std::io::stdout().flush().unwrap();::std::io::stdin().read_line(\u0026mutbuffer).unwrap();game.last_command=buffer[0..buffer.len()-1].to_owned();}else{game.last_command=\"\".to_owned();}sf=sf(\u0026mutgame);}}   Happy Coding,\nFrancesco Cogno\n","wordCount":"1703","inLanguage":"en","image":"https://blog.mindflavor.it/images/zork-rust/zork-rust.png","datePublished":"2018-01-17T00:00:00Z","dateModified":"2018-01-17T00:00:00Z","author":[{"@type":"Person","name":"Francesco Cogno"}],"mainEntityOfPage":{"@type":"WebPage","@id":"https://blog.mindflavor.it/posts/zork-rust/"},"publisher":{"@type":"Organization","name":"MindFlavor's blog","logo":{"@type":"ImageObject","url":"https://blog.mindflavor.it/%3Clink%20/%20abs%20url%3E"}}}</script>
+</head>
+<body id=top>
+<script>localStorage.getItem("pref-theme")==="dark"?document.body.classList.add('dark'):localStorage.getItem("pref-theme")==="light"?document.body.classList.remove('dark'):window.matchMedia('(prefers-color-scheme: dark)').matches&&document.body.classList.add('dark')</script>
+<header class=header>
+<nav class=nav>
+<div class=logo>
+<a href=https://blog.mindflavor.it accesskey=h title="Home (Alt + H)">
+<img src=../../images/mind.jpg alt=logo aria-label=logo height=35>Home</a>
+<span class=logo-switches>
+<button id=theme-toggle accesskey=t title="(Alt + T)"><svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg><svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+</button>
+</span>
+</div>
+<ul id=menu>
+<li>
+<a href=https://blog.mindflavor.it/tags/ title=tags>
+<span>tags</span>
+</a>
+</li>
+<li>
+<a href=https://blog.mindflavor.it/search/ title="search (Alt + /)" accesskey=/>
+<span>search</span>
+</a>
+</li>
+</ul>
+</nav>
+</header>
+<main class=main>
+<article class=post-single>
+<header class=post-header>
+<div class=breadcrumbs><a href=https://blog.mindflavor.it>Home</a>&nbsp;»&nbsp;<a href=https://blog.mindflavor.it/posts/>Posts</a></div>
+<h1 class=post-title>
+Let's build Zork using Rust!
+</h1>
+<div class=post-description>
+A simple state machine game in Rust
+</div>
+<div class=post-meta>17 January 2018&nbsp;·&nbsp;8 min&nbsp;·&nbsp;Francesco Cogno&nbsp;|&nbsp;<a href=https://github.com/mindflavor/personal_blog/blob/main/content/posts/zork-rust.md rel="noopener noreferrer" target=_blank>Suggest Changes</a>
+</div>
+</header>
+<figure class=entry-cover><img loading=lazy src=https://blog.mindflavor.it/images/zork-rust/zork-rust.png alt>
+</figure>
+<div class=post-content><p>Games like Zork are basically big state machines. You advance in the game performing actions that lead your character from situation to situation. Eventually you either die horribly or win the game. The purpose of this post is to build a - simplified - textual game. We use it as a pretext to explore one way of treating state machines using Rust (yes, it&rsquo;s a clickbaity title)&mldr;</p>
+<h2 id=state-machines-in-rust>State machines in Rust<a hidden class=anchor aria-hidden=true href=#state-machines-in-rust>#</a></h2>
+<p>There are various ways to model a state machine in Rust. Today we build on top of a gorgeous idea by <a href=https://twitter.com/Argorak>Florian Gilcher</a> (you can see his original tweet here: <a href=https://twitter.com/Argorak/status/940221231709683713>https://twitter.com/Argorak/status/940221231709683713</a>). Basically he suggests to model state passing around functions pointers. This works beautifully because you end up splitting your states in different functions instead of having a huge <code>match</code> statement.</p>
+<p>Let&rsquo;s see some code first. We will comment it afterwards.</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-rust data-lang=rust><span class=cp>#[derive(Debug)]</span><span class=w>
+</span><span class=w></span><span class=k>struct</span> <span class=nc>Machine</span><span class=p>;</span><span class=w>
+</span><span class=w>
+</span><span class=w></span><span class=k>struct</span> <span class=nc>StateFn</span><span class=p>(</span><span class=k>fn</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=n>Machine</span><span class=p>)</span><span class=w> </span>-&gt; <span class=nc>StateFn</span><span class=p>);</span><span class=w>
+</span><span class=w>
+</span><span class=w></span><span class=k>impl</span><span class=w> </span><span class=n>Machine</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>    </span><span class=k>fn</span> <span class=nf>start</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=bp>self</span><span class=p>)</span><span class=w> </span>-&gt; <span class=nc>StateFn</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>        </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;start&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>        </span><span class=n>StateFn</span><span class=p>(</span><span class=n>Self</span>::<span class=n>state</span><span class=p>)</span><span class=w>
+</span><span class=w>    </span><span class=p>}</span><span class=w>
+</span><span class=w>
+</span><span class=w>    </span><span class=k>fn</span> <span class=nf>state</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=bp>self</span><span class=p>)</span><span class=w> </span>-&gt; <span class=nc>StateFn</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>        </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;state&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>        </span><span class=n>StateFn</span><span class=p>(</span><span class=n>Self</span>::<span class=n>end</span><span class=p>)</span><span class=w>
+</span><span class=w>    </span><span class=p>}</span><span class=w>
+</span><span class=w>
+</span><span class=w>    </span><span class=k>fn</span> <span class=nf>end</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=bp>self</span><span class=p>)</span><span class=w> </span>-&gt; <span class=nc>StateFn</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>        </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;end&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>        </span><span class=n>StateFn</span><span class=p>(</span><span class=n>Self</span>::<span class=n>end</span><span class=p>)</span><span class=w>
+</span><span class=w>    </span><span class=p>}</span><span class=w>
+</span><span class=w></span><span class=p>}</span><span class=w>
+</span></code></pre></td></tr></table>
+</div>
+</div><p>Here we have a <code>struct</code> called <code>Machine</code> which will hold some information that will be hard to model as a state machine (empty in our case). We also define another struct, <code>StateFn</code>, which holds the current state (expressed as a function). The convention, here, is that each <em>state function</em> will accept a mutable reference of <code>Machine</code> and will spit out the next state.</p>
+<p>The syntax might be baffling at first so let&rsquo;s take a look at it. This line:</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-rust data-lang=rust><span class=k>struct</span> <span class=nc>StateFn</span><span class=p>(</span><span class=k>fn</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=n>Machine</span><span class=p>)</span><span class=w> </span>-&gt; <span class=nc>StateFn</span><span class=p>);</span><span class=w>
+</span></code></pre></td></tr></table>
+</div>
+</div><p>Reads: create a <code>struct</code> called <code>StateFn</code>. This struct will have one implicit field. This field will accept only function pointers. The function pointed must have a single parameter - mutable reference of <code>Machine</code> - and will return a owned <code>StateFn</code>.</p>
+<p>The state machine depicted above is this one:</p>
+<p><img loading=lazy src=/images/zork-rust/00.png#center alt>
+</p>
+<p>To &ldquo;run&rdquo; it we can use this simple code:</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-rust data-lang=rust><span class=k>fn</span> <span class=nf>main</span><span class=p>()</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>m</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>Machine</span><span class=p>;</span><span class=w>
+</span><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>c</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>StateFn</span><span class=p>(</span><span class=n>Machine</span>::<span class=n>start</span><span class=p>);</span><span class=w>
+</span><span class=w>    </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;m == {:?}&#34;</span><span class=p>,</span><span class=w> </span><span class=n>m</span><span class=p>);</span><span class=w>
+</span><span class=w>
+</span><span class=w>    </span><span class=n>c</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>c</span><span class=p>.</span><span class=mi>0</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=n>m</span><span class=p>);</span><span class=w>
+</span><span class=w>    </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;m == {:?}&#34;</span><span class=p>,</span><span class=w> </span><span class=n>m</span><span class=p>);</span><span class=w>
+</span><span class=w>
+</span><span class=w>    </span><span class=n>c</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>c</span><span class=p>.</span><span class=mi>0</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=n>m</span><span class=p>);</span><span class=w>
+</span><span class=w>    </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;m == {:?}&#34;</span><span class=p>,</span><span class=w> </span><span class=n>m</span><span class=p>);</span><span class=w>
+</span><span class=w>
+</span><span class=w>    </span><span class=n>c</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>c</span><span class=p>.</span><span class=mi>0</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=n>m</span><span class=p>);</span><span class=w>
+</span><span class=w>    </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;m == {:?}&#34;</span><span class=p>,</span><span class=w> </span><span class=n>m</span><span class=p>);</span><span class=w>
+</span><span class=w>
+</span><span class=w>    </span><span class=n>c</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>c</span><span class=p>.</span><span class=mi>0</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=n>m</span><span class=p>);</span><span class=w>
+</span><span class=w>    </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;m == {:?}&#34;</span><span class=p>,</span><span class=w> </span><span class=n>m</span><span class=p>);</span><span class=w>
+</span><span class=w></span><span class=p>}</span><span class=w>
+</span></code></pre></td></tr></table>
+</div>
+</div><p>The <code>c.0()</code> syntax allows us to extract the first implicit field of <code>StateFn</code> and call it as a function. We pass the function our <em>world state</em> which is a <code>Machine</code> instance. Reassigning our <code>StateFn</code> binding simulates the evolution of the state machine. We can remove that <code>.0</code> function call implementing <code>Deref</code>.</p>
+<h3 id=deref>Deref<a hidden class=anchor aria-hidden=true href=#deref>#</a></h3>
+<p><a href=https://twitter.com/Argorak>Florian Gilcher</a> gives us an elegant solution to get rid of the <code>c.0()</code> dereference. Rust allows us to implement custom deref behavior using the <code>Deref</code> trait. Let&rsquo;s do this:</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-rust data-lang=rust><span class=k>impl</span><span class=w> </span><span class=n>Deref</span><span class=w> </span><span class=k>for</span><span class=w> </span><span class=n>StateFn</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>    </span><span class=k>type</span> <span class=nc>Target</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=k>fn</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=n>Machine</span><span class=p>)</span><span class=w> </span>-&gt; <span class=nc>StateFn</span><span class=p>;</span><span class=w>
+</span><span class=w>
+</span><span class=w>    </span><span class=k>fn</span> <span class=nf>deref</span><span class=p>(</span><span class=o>&amp;</span><span class=bp>self</span><span class=p>)</span><span class=w> </span>-&gt; <span class=kp>&amp;</span><span class=nc>Self</span>::<span class=n>Target</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>        </span><span class=o>&amp;</span><span class=bp>self</span><span class=p>.</span><span class=mi>0</span><span class=w>
+</span><span class=w>    </span><span class=p>}</span><span class=w>
+</span><span class=w></span><span class=p>}</span><span class=w>
+</span></code></pre></td></tr></table>
+</div>
+</div><p>With this code we can simplify this call:</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-rust data-lang=rust><span class=n>c</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>c</span><span class=p>.</span><span class=mi>0</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=n>m</span><span class=p>);</span><span class=w>
+</span></code></pre></td></tr></table>
+</div>
+</div><p>with this one:</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-rust data-lang=rust><span class=n>c</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>c</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=n>m</span><span class=p>);</span><span class=w>
+</span></code></pre></td></tr></table>
+</div>
+</div><p>So, to recap, we pass around functions that represent our state in the state machine. The functions will manipulate our <em>world</em>. With this information we can implement our Zork clone!</p>
+<h3 id=the-game>The game<a hidden class=anchor aria-hidden=true href=#the-game>#</a></h3>
+<p>The game will be very simple: there will be just three rooms. This is the state machine of our game:</p>
+<p><img loading=lazy src=/images/zork-rust/01.png#center alt>
+</p>
+<p>Here we have two &ldquo;game-related&rdquo; variables:</p>
+<ul>
+<li>Player owns the key or not</li>
+<li>Player has opened the door or not</li>
+</ul>
+<p>Also, to give interactivity, we store in our &ldquo;world&rdquo; the command input by the player. Each state can inspect the command issued and act accordingly. For example we have a magic fountain in a room. The player may issue: &ldquo;drink from the fountain&rdquo;. If we are in the right room we can let the avatar drink from the fountain. The same command can be invalid in another room though. Lastly we store the player name.</p>
+<p>We can model it just like this:</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-rust data-lang=rust><span class=cp>#[derive(Debug)]</span><span class=w>
+</span><span class=w></span><span class=k>struct</span> <span class=nc>Player</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>    </span><span class=n>name</span>: <span class=nb>String</span><span class=p>,</span><span class=w>
+</span><span class=w>    </span><span class=n>has_key</span>: <span class=kt>bool</span><span class=p>,</span><span class=w>
+</span><span class=w></span><span class=p>}</span><span class=w>
+</span><span class=w>
+</span><span class=w></span><span class=cp>#[derive(Debug)]</span><span class=w>
+</span><span class=w></span><span class=k>struct</span> <span class=nc>Game</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>    </span><span class=n>player</span>: <span class=nc>Player</span><span class=p>,</span><span class=w>
+</span><span class=w>    </span><span class=n>last_command</span>: <span class=nb>String</span><span class=p>,</span><span class=w>
+</span><span class=w>    </span><span class=n>door_locked</span>: <span class=kt>bool</span><span class=p>,</span><span class=w>
+</span><span class=w></span><span class=p>}</span><span class=w>
+</span></code></pre></td></tr></table>
+</div>
+</div><p>Notice we have both &ldquo;game-related&rdquo; variables and &ldquo;technical&rdquo; variables jumbled together. This might not be desiderable: we could rid of the &ldquo;game-related&rdquo; variable by replacing them via specialized states. For example, instead of having a single <em>room</em> state we can have <em>room_door_locked</em> and <em>room_door_unlocked</em>. Something like this:</p>
+<p><img loading=lazy src=/images/zork-rust/02.png#center alt>
+</p>
+<h3 id=the-text-processor>The text processor<a hidden class=anchor aria-hidden=true href=#the-text-processor>#</a></h3>
+<p>In order to build a text-based game you have to handle free form text. Given this is a sample of a Rust state machine I will cheat and just match predefined strings. For example the <em>room with the key</em> can be written like this:</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-rust data-lang=rust><span class=k>fn</span> <span class=nf>key_room_with_key</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=bp>self</span><span class=p>)</span><span class=w> </span>-&gt; <span class=nc>StateStruct</span><span class=o>&lt;</span><span class=n>Game</span><span class=o>&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>    </span><span class=k>match</span><span class=w> </span><span class=o>&amp;</span><span class=bp>self</span><span class=p>.</span><span class=n>last_command</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=o>&amp;</span><span class=kt>str</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>        </span><span class=s>&#34;&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>            </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;You are in a dark room.&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>            </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>key_room_with_key</span><span class=p>)</span><span class=w>
+</span><span class=w>        </span><span class=p>}</span><span class=w>
+</span><span class=w>        </span><span class=s>&#34;inspect&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>            </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;You are in a dark room. You see a key on the floor.&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>            </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>key_room_with_key</span><span class=p>)</span><span class=w>
+</span><span class=w>        </span><span class=p>}</span><span class=w>
+</span><span class=w>        </span><span class=s>&#34;pick up the key&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>            </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;You gingerly pick up the key and store it for later use.&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>            </span><span class=bp>self</span><span class=p>.</span><span class=n>player</span><span class=p>.</span><span class=n>has_key</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=kc>true</span><span class=p>;</span><span class=w>
+</span><span class=w>            </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>key_room_empty</span><span class=p>)</span><span class=w>
+</span><span class=w>        </span><span class=p>}</span><span class=w>
+</span><span class=w>        </span><span class=s>&#34;go back&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>            </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;You go back in the hallway.&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>            </span><span class=n>StateStruct</span>::<span class=n>no_input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>hallway</span><span class=p>)</span><span class=w>
+</span><span class=w>        </span><span class=p>}</span><span class=w>
+</span><span class=w>        </span><span class=n>_</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>            </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;I don&#39;t know how to do that! What do you want to do?&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>            </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>key_room_with_key</span><span class=p>)</span><span class=w>
+</span><span class=w>        </span><span class=p>}</span><span class=w>
+</span><span class=w>    </span><span class=p>}</span><span class=w>
+</span><span class=w></span><span class=p>}</span><span class=w>
+</span></code></pre></td></tr></table>
+</div>
+</div><p>As you can see we just match for specific input strings. Remember, the last received command will be in the <code>last_command</code> field. We than do three things:</p>
+<ol>
+<li>Print something to give feedback to the user.</li>
+<li>Change the world (optional) modifying our mutable reference.</li>
+<li>Move to the new state. Here we use two helper functions, <code>input_required</code> and <code>no_input_required</code> to signal if we have to wait for player input before <em>activating</em> the new state.</li>
+</ol>
+<h3 id=main>Main<a hidden class=anchor aria-hidden=true href=#main>#</a></h3>
+<p>The main method is just a loop. We start the state machine in the <em>start</em> state and <em>play</em> the state machine until we reach the <em>end</em> state. The main loop is oblivious of what&rsquo;s happening in the state machine, the state transition happen as result of state execution.</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-rust data-lang=rust><span class=k>fn</span> <span class=nf>main</span><span class=p>()</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>    </span><span class=k>use</span><span class=w> </span><span class=n>std</span>::<span class=n>io</span>::<span class=n>Write</span><span class=p>;</span><span class=w>
+</span><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>game</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>Game</span>::<span class=n>default</span><span class=p>();</span><span class=w>
+</span><span class=w>    
+</span><span class=w>    </span><span class=c1>// start the state machine.
+</span><span class=c1></span><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>sf</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>StateStruct</span>::<span class=n>no_input_required</span><span class=p>(</span><span class=n>Game</span>::<span class=n>start</span><span class=p>);</span><span class=w>
+</span><span class=w>
+</span><span class=w>    </span><span class=c1>// process the start state and progress to the next state.
+</span><span class=c1></span><span class=w>    </span><span class=n>sf</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>sf</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=n>game</span><span class=p>);</span><span class=w>
+</span><span class=w>
+</span><span class=w>    </span><span class=c1>// we play the machine until its end.
+</span><span class=c1></span><span class=w>    </span><span class=k>while</span><span class=w> </span><span class=o>!</span><span class=n>sf</span><span class=p>.</span><span class=n>completed</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>
+</span><span class=w>	</span><span class=c1>// if the state requires input we ask the player to supply it.
+</span><span class=c1></span><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=n>sf</span><span class=p>.</span><span class=n>requires_input</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>            </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>buffer</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=nb>String</span>::<span class=n>new</span><span class=p>();</span><span class=w>
+</span><span class=w>            </span><span class=n>print</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;&gt; &#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>            </span>::<span class=n>std</span>::<span class=n>io</span>::<span class=n>stdout</span><span class=p>().</span><span class=n>flush</span><span class=p>().</span><span class=n>unwrap</span><span class=p>();</span><span class=w>
+</span><span class=w>            </span>::<span class=n>std</span>::<span class=n>io</span>::<span class=n>stdin</span><span class=p>().</span><span class=n>read_line</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=n>buffer</span><span class=p>).</span><span class=n>unwrap</span><span class=p>();</span><span class=w>
+</span><span class=w>            </span><span class=n>game</span><span class=p>.</span><span class=n>last_command</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>buffer</span><span class=p>[</span><span class=mi>0</span><span class=p>..</span><span class=n>buffer</span><span class=p>.</span><span class=n>len</span><span class=p>()</span><span class=w> </span><span class=o>-</span><span class=w> </span><span class=mi>1</span><span class=p>].</span><span class=n>to_owned</span><span class=p>();</span><span class=w>
+</span><span class=w>        </span><span class=p>}</span><span class=w> </span><span class=k>else</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>            </span><span class=n>game</span><span class=p>.</span><span class=n>last_command</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=s>&#34;&#34;</span><span class=p>.</span><span class=n>to_owned</span><span class=p>();</span><span class=w>
+</span><span class=w>        </span><span class=p>}</span><span class=w>
+</span><span class=w>
+</span><span class=w>	</span><span class=c1>// now we play the next state and advance the machine.
+</span><span class=c1></span><span class=w>        </span><span class=n>sf</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>sf</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=n>game</span><span class=p>);</span><span class=w>
+</span><span class=w>    </span><span class=p>}</span><span class=w>
+</span><span class=w></span><span class=p>}</span><span class=w>
+</span></code></pre></td></tr></table>
+</div>
+</div><p>As you can see the <code>main</code> code is straightforward.</p>
+<h3 id=wrapping-up>Wrapping up<a hidden class=anchor aria-hidden=true href=#wrapping-up>#</a></h3>
+<p>Now all we have to do is to implement the states our game will handle. The following complete code will implement the diagram above. Can you complete the dungeon without dying? Also, can you devise a more challenging dungeon to play? Let me know!</p>
+<div class=highlight><div class=chroma>
+<table class=lntable><tr><td class=lntd>
+<pre tabindex=0 class=chroma><code><span class=lnt>  1
+</span><span class=lnt>  2
+</span><span class=lnt>  3
+</span><span class=lnt>  4
+</span><span class=lnt>  5
+</span><span class=lnt>  6
+</span><span class=lnt>  7
+</span><span class=lnt>  8
+</span><span class=lnt>  9
+</span><span class=lnt> 10
+</span><span class=lnt> 11
+</span><span class=lnt> 12
+</span><span class=lnt> 13
+</span><span class=lnt> 14
+</span><span class=lnt> 15
+</span><span class=lnt> 16
+</span><span class=lnt> 17
+</span><span class=lnt> 18
+</span><span class=lnt> 19
+</span><span class=lnt> 20
+</span><span class=lnt> 21
+</span><span class=lnt> 22
+</span><span class=lnt> 23
+</span><span class=lnt> 24
+</span><span class=lnt> 25
+</span><span class=lnt> 26
+</span><span class=lnt> 27
+</span><span class=lnt> 28
+</span><span class=lnt> 29
+</span><span class=lnt> 30
+</span><span class=lnt> 31
+</span><span class=lnt> 32
+</span><span class=lnt> 33
+</span><span class=lnt> 34
+</span><span class=lnt> 35
+</span><span class=lnt> 36
+</span><span class=lnt> 37
+</span><span class=lnt> 38
+</span><span class=lnt> 39
+</span><span class=lnt> 40
+</span><span class=lnt> 41
+</span><span class=lnt> 42
+</span><span class=lnt> 43
+</span><span class=lnt> 44
+</span><span class=lnt> 45
+</span><span class=lnt> 46
+</span><span class=lnt> 47
+</span><span class=lnt> 48
+</span><span class=lnt> 49
+</span><span class=lnt> 50
+</span><span class=lnt> 51
+</span><span class=lnt> 52
+</span><span class=lnt> 53
+</span><span class=lnt> 54
+</span><span class=lnt> 55
+</span><span class=lnt> 56
+</span><span class=lnt> 57
+</span><span class=lnt> 58
+</span><span class=lnt> 59
+</span><span class=lnt> 60
+</span><span class=lnt> 61
+</span><span class=lnt> 62
+</span><span class=lnt> 63
+</span><span class=lnt> 64
+</span><span class=lnt> 65
+</span><span class=lnt> 66
+</span><span class=lnt> 67
+</span><span class=lnt> 68
+</span><span class=lnt> 69
+</span><span class=lnt> 70
+</span><span class=lnt> 71
+</span><span class=lnt> 72
+</span><span class=lnt> 73
+</span><span class=lnt> 74
+</span><span class=lnt> 75
+</span><span class=lnt> 76
+</span><span class=lnt> 77
+</span><span class=lnt> 78
+</span><span class=lnt> 79
+</span><span class=lnt> 80
+</span><span class=lnt> 81
+</span><span class=lnt> 82
+</span><span class=lnt> 83
+</span><span class=lnt> 84
+</span><span class=lnt> 85
+</span><span class=lnt> 86
+</span><span class=lnt> 87
+</span><span class=lnt> 88
+</span><span class=lnt> 89
+</span><span class=lnt> 90
+</span><span class=lnt> 91
+</span><span class=lnt> 92
+</span><span class=lnt> 93
+</span><span class=lnt> 94
+</span><span class=lnt> 95
+</span><span class=lnt> 96
+</span><span class=lnt> 97
+</span><span class=lnt> 98
+</span><span class=lnt> 99
+</span><span class=lnt>100
+</span><span class=lnt>101
+</span><span class=lnt>102
+</span><span class=lnt>103
+</span><span class=lnt>104
+</span><span class=lnt>105
+</span><span class=lnt>106
+</span><span class=lnt>107
+</span><span class=lnt>108
+</span><span class=lnt>109
+</span><span class=lnt>110
+</span><span class=lnt>111
+</span><span class=lnt>112
+</span><span class=lnt>113
+</span><span class=lnt>114
+</span><span class=lnt>115
+</span><span class=lnt>116
+</span><span class=lnt>117
+</span><span class=lnt>118
+</span><span class=lnt>119
+</span><span class=lnt>120
+</span><span class=lnt>121
+</span><span class=lnt>122
+</span><span class=lnt>123
+</span><span class=lnt>124
+</span><span class=lnt>125
+</span><span class=lnt>126
+</span><span class=lnt>127
+</span><span class=lnt>128
+</span><span class=lnt>129
+</span><span class=lnt>130
+</span><span class=lnt>131
+</span><span class=lnt>132
+</span><span class=lnt>133
+</span><span class=lnt>134
+</span><span class=lnt>135
+</span><span class=lnt>136
+</span><span class=lnt>137
+</span><span class=lnt>138
+</span><span class=lnt>139
+</span><span class=lnt>140
+</span><span class=lnt>141
+</span><span class=lnt>142
+</span><span class=lnt>143
+</span><span class=lnt>144
+</span><span class=lnt>145
+</span><span class=lnt>146
+</span><span class=lnt>147
+</span><span class=lnt>148
+</span><span class=lnt>149
+</span><span class=lnt>150
+</span><span class=lnt>151
+</span><span class=lnt>152
+</span><span class=lnt>153
+</span><span class=lnt>154
+</span><span class=lnt>155
+</span><span class=lnt>156
+</span><span class=lnt>157
+</span><span class=lnt>158
+</span><span class=lnt>159
+</span><span class=lnt>160
+</span><span class=lnt>161
+</span><span class=lnt>162
+</span><span class=lnt>163
+</span><span class=lnt>164
+</span><span class=lnt>165
+</span><span class=lnt>166
+</span><span class=lnt>167
+</span><span class=lnt>168
+</span><span class=lnt>169
+</span><span class=lnt>170
+</span><span class=lnt>171
+</span><span class=lnt>172
+</span><span class=lnt>173
+</span><span class=lnt>174
+</span><span class=lnt>175
+</span><span class=lnt>176
+</span><span class=lnt>177
+</span><span class=lnt>178
+</span><span class=lnt>179
+</span><span class=lnt>180
+</span><span class=lnt>181
+</span><span class=lnt>182
+</span><span class=lnt>183
+</span><span class=lnt>184
+</span><span class=lnt>185
+</span><span class=lnt>186
+</span><span class=lnt>187
+</span><span class=lnt>188
+</span><span class=lnt>189
+</span><span class=lnt>190
+</span><span class=lnt>191
+</span><span class=lnt>192
+</span><span class=lnt>193
+</span><span class=lnt>194
+</span><span class=lnt>195
+</span><span class=lnt>196
+</span><span class=lnt>197
+</span><span class=lnt>198
+</span><span class=lnt>199
+</span><span class=lnt>200
+</span><span class=lnt>201
+</span><span class=lnt>202
+</span><span class=lnt>203
+</span><span class=lnt>204
+</span><span class=lnt>205
+</span><span class=lnt>206
+</span><span class=lnt>207
+</span><span class=lnt>208
+</span><span class=lnt>209
+</span><span class=lnt>210
+</span><span class=lnt>211
+</span><span class=lnt>212
+</span><span class=lnt>213
+</span><span class=lnt>214
+</span><span class=lnt>215
+</span><span class=lnt>216
+</span><span class=lnt>217
+</span><span class=lnt>218
+</span><span class=lnt>219
+</span><span class=lnt>220
+</span><span class=lnt>221
+</span><span class=lnt>222
+</span><span class=lnt>223
+</span><span class=lnt>224
+</span><span class=lnt>225
+</span><span class=lnt>226
+</span><span class=lnt>227
+</span><span class=lnt>228
+</span><span class=lnt>229
+</span><span class=lnt>230
+</span><span class=lnt>231
+</span><span class=lnt>232
+</span><span class=lnt>233
+</span><span class=lnt>234
+</span><span class=lnt>235
+</span><span class=lnt>236
+</span><span class=lnt>237
+</span><span class=lnt>238
+</span><span class=lnt>239
+</span><span class=lnt>240
+</span><span class=lnt>241
+</span><span class=lnt>242
+</span><span class=lnt>243
+</span><span class=lnt>244
+</span><span class=lnt>245
+</span><span class=lnt>246
+</span><span class=lnt>247
+</span><span class=lnt>248
+</span><span class=lnt>249
+</span><span class=lnt>250
+</span><span class=lnt>251
+</span><span class=lnt>252
+</span><span class=lnt>253
+</span><span class=lnt>254
+</span><span class=lnt>255
+</span><span class=lnt>256
+</span><span class=lnt>257
+</span><span class=lnt>258
+</span><span class=lnt>259
+</span><span class=lnt>260
+</span><span class=lnt>261
+</span><span class=lnt>262
+</span><span class=lnt>263
+</span><span class=lnt>264
+</span><span class=lnt>265
+</span><span class=lnt>266
+</span><span class=lnt>267
+</span><span class=lnt>268
+</span><span class=lnt>269
+</span><span class=lnt>270
+</span><span class=lnt>271
+</span><span class=lnt>272
+</span><span class=lnt>273
+</span></code></pre></td>
+<td class=lntd>
+<pre tabindex=0 class=chroma><code class=language-rust data-lang=rust><span class=k>use</span><span class=w> </span><span class=n>std</span>::<span class=n>ops</span>::<span class=n>Deref</span><span class=p>;</span><span class=w>
+</span><span class=w>
+</span><span class=w></span><span class=k>type</span> <span class=nc>StateFn</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=k>fn</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=n>T</span><span class=p>)</span><span class=w> </span>-&gt; <span class=nc>StateStruct</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>;</span><span class=w>
+</span><span class=w></span><span class=k>struct</span> <span class=nc>StateStruct</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>    </span><span class=n>function</span>: <span class=nc>StateFn</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>,</span><span class=w>
+</span><span class=w>    </span><span class=n>requires_input</span>: <span class=kt>bool</span><span class=p>,</span><span class=w>
+</span><span class=w>    </span><span class=n>completed</span>: <span class=kt>bool</span><span class=p>,</span><span class=w>
+</span><span class=w></span><span class=p>}</span><span class=w>
+</span><span class=w>
+</span><span class=w></span><span class=k>impl</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=w> </span><span class=n>StateStruct</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>    </span><span class=k>fn</span> <span class=nf>new</span><span class=p>(</span><span class=n>function</span>: <span class=nc>StateFn</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>,</span><span class=w> </span><span class=n>requires_input</span>: <span class=kt>bool</span><span class=p>,</span><span class=w> </span><span class=n>completed</span>: <span class=kt>bool</span><span class=p>)</span><span class=w> </span>-&gt; <span class=nc>StateStruct</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>        </span><span class=n>StateStruct</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>            </span><span class=n>function</span>: <span class=nc>function</span><span class=p>,</span><span class=w>
+</span><span class=w>            </span><span class=n>requires_input</span>: <span class=nc>requires_input</span><span class=p>,</span><span class=w>
+</span><span class=w>            </span><span class=n>completed</span>: <span class=nc>completed</span><span class=p>,</span><span class=w>
+</span><span class=w>        </span><span class=p>}</span><span class=w>
+</span><span class=w>    </span><span class=p>}</span><span class=w>
+</span><span class=w>
+</span><span class=w>    </span><span class=k>fn</span> <span class=nf>input_required</span><span class=p>(</span><span class=n>function</span>: <span class=nc>StateFn</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>)</span><span class=w> </span>-&gt; <span class=nc>StateStruct</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>        </span><span class=n>StateStruct</span>::<span class=n>new</span><span class=p>(</span><span class=n>function</span><span class=p>,</span><span class=w> </span><span class=kc>true</span><span class=p>,</span><span class=w> </span><span class=kc>false</span><span class=p>)</span><span class=w>
+</span><span class=w>    </span><span class=p>}</span><span class=w>
+</span><span class=w>
+</span><span class=w>    </span><span class=k>fn</span> <span class=nf>no_input_required</span><span class=p>(</span><span class=n>function</span>: <span class=nc>StateFn</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>)</span><span class=w> </span>-&gt; <span class=nc>StateStruct</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>        </span><span class=n>StateStruct</span>::<span class=n>new</span><span class=p>(</span><span class=n>function</span><span class=p>,</span><span class=w> </span><span class=kc>false</span><span class=p>,</span><span class=w> </span><span class=kc>false</span><span class=p>)</span><span class=w>
+</span><span class=w>    </span><span class=p>}</span><span class=w>
+</span><span class=w>
+</span><span class=w>    </span><span class=k>fn</span> <span class=nf>completed</span><span class=p>(</span><span class=n>function</span>: <span class=nc>StateFn</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>)</span><span class=w> </span>-&gt; <span class=nc>StateStruct</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>        </span><span class=n>StateStruct</span>::<span class=n>new</span><span class=p>(</span><span class=n>function</span><span class=p>,</span><span class=w> </span><span class=kc>false</span><span class=p>,</span><span class=w> </span><span class=kc>true</span><span class=p>)</span><span class=w>
+</span><span class=w>    </span><span class=p>}</span><span class=w>
+</span><span class=w></span><span class=p>}</span><span class=w>
+</span><span class=w>
+</span><span class=w></span><span class=k>impl</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=w> </span><span class=n>Deref</span><span class=w> </span><span class=k>for</span><span class=w> </span><span class=n>StateStruct</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>    </span><span class=k>type</span> <span class=nc>Target</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>StateFn</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>;</span><span class=w>
+</span><span class=w>
+</span><span class=w>    </span><span class=k>fn</span> <span class=nf>deref</span><span class=p>(</span><span class=o>&amp;</span><span class=bp>self</span><span class=p>)</span><span class=w> </span>-&gt; <span class=kp>&amp;</span><span class=nc>Self</span>::<span class=n>Target</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>        </span><span class=o>&amp;</span><span class=bp>self</span><span class=p>.</span><span class=n>function</span><span class=w>
+</span><span class=w>    </span><span class=p>}</span><span class=w>
+</span><span class=w></span><span class=p>}</span><span class=w>
+</span><span class=w>
+</span><span class=w></span><span class=cp>#[derive(Debug)]</span><span class=w>
+</span><span class=w></span><span class=k>struct</span> <span class=nc>Player</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>    </span><span class=n>name</span>: <span class=nb>String</span><span class=p>,</span><span class=w>
+</span><span class=w>    </span><span class=n>has_key</span>: <span class=kt>bool</span><span class=p>,</span><span class=w>
+</span><span class=w></span><span class=p>}</span><span class=w>
+</span><span class=w>
+</span><span class=w></span><span class=cp>#[derive(Debug)]</span><span class=w>
+</span><span class=w></span><span class=k>struct</span> <span class=nc>Game</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>    </span><span class=n>player</span>: <span class=nc>Player</span><span class=p>,</span><span class=w>
+</span><span class=w>    </span><span class=n>last_command</span>: <span class=nb>String</span><span class=p>,</span><span class=w>
+</span><span class=w>    </span><span class=n>door_locked</span>: <span class=kt>bool</span><span class=p>,</span><span class=w>
+</span><span class=w></span><span class=p>}</span><span class=w>
+</span><span class=w>
+</span><span class=w></span><span class=k>impl</span><span class=w> </span>::<span class=n>std</span>::<span class=n>default</span>::<span class=nb>Default</span><span class=w> </span><span class=k>for</span><span class=w> </span><span class=n>Game</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>    </span><span class=k>fn</span> <span class=nf>default</span><span class=p>()</span><span class=w> </span>-&gt; <span class=nc>Self</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>        </span><span class=n>Game</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>            </span><span class=n>player</span>: <span class=nc>Player</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>name</span>: <span class=s>&#34;&#34;</span><span class=p>.</span><span class=n>to_owned</span><span class=p>(),</span><span class=w>
+</span><span class=w>                </span><span class=n>has_key</span>: <span class=nc>false</span><span class=p>,</span><span class=w>
+</span><span class=w>            </span><span class=p>},</span><span class=w>
+</span><span class=w>            </span><span class=n>door_locked</span>: <span class=nc>true</span><span class=p>,</span><span class=w>
+</span><span class=w>            </span><span class=n>last_command</span>: <span class=s>&#34;&#34;</span><span class=p>.</span><span class=n>to_owned</span><span class=p>(),</span><span class=w>
+</span><span class=w>        </span><span class=p>}</span><span class=w>
+</span><span class=w>    </span><span class=p>}</span><span class=w>
+</span><span class=w></span><span class=p>}</span><span class=w>
+</span><span class=w>
+</span><span class=w></span><span class=k>impl</span><span class=w> </span><span class=n>Game</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>    </span><span class=k>fn</span> <span class=nf>reset</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=bp>self</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>        </span><span class=bp>self</span><span class=p>.</span><span class=n>player</span><span class=p>.</span><span class=n>has_key</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=kc>false</span><span class=p>;</span><span class=w>
+</span><span class=w>        </span><span class=bp>self</span><span class=p>.</span><span class=n>door_locked</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=kc>true</span><span class=p>;</span><span class=w>
+</span><span class=w>    </span><span class=p>}</span><span class=w>
+</span><span class=w>
+</span><span class=w>    </span><span class=k>fn</span> <span class=nf>start</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=bp>self</span><span class=p>)</span><span class=w> </span>-&gt; <span class=nc>StateStruct</span><span class=o>&lt;</span><span class=n>Game</span><span class=o>&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>        </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;You wake up in hallway. Your memory is fuzzy... What&#39;s your name?&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>        </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>save_name</span><span class=p>)</span><span class=w>
+</span><span class=w>    </span><span class=p>}</span><span class=w>
+</span><span class=w>
+</span><span class=w>    </span><span class=k>fn</span> <span class=nf>end</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=bp>self</span><span class=p>)</span><span class=w> </span>-&gt; <span class=nc>StateStruct</span><span class=o>&lt;</span><span class=n>Game</span><span class=o>&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>        </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;You eneded the game! {} wins! Congrats!&#34;</span><span class=p>,</span><span class=w> </span><span class=bp>self</span><span class=p>.</span><span class=n>player</span><span class=p>.</span><span class=n>name</span><span class=p>);</span><span class=w>
+</span><span class=w>        </span><span class=n>StateStruct</span>::<span class=n>completed</span><span class=p>(</span><span class=n>Self</span>::<span class=n>end</span><span class=p>)</span><span class=w>
+</span><span class=w>    </span><span class=p>}</span><span class=w>
+</span><span class=w>
+</span><span class=w>    </span><span class=k>fn</span> <span class=nf>save_name</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=bp>self</span><span class=p>)</span><span class=w> </span>-&gt; <span class=nc>StateStruct</span><span class=o>&lt;</span><span class=n>Game</span><span class=o>&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>        </span>::<span class=n>std</span>::<span class=n>mem</span>::<span class=n>swap</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=bp>self</span><span class=p>.</span><span class=n>player</span><span class=p>.</span><span class=n>name</span><span class=p>,</span><span class=w> </span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=bp>self</span><span class=p>.</span><span class=n>last_command</span><span class=p>);</span><span class=w>
+</span><span class=w>        </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;Yes, that&#39;s right! You are {}!&#34;</span><span class=p>,</span><span class=w> </span><span class=bp>self</span><span class=p>.</span><span class=n>player</span><span class=p>.</span><span class=n>name</span><span class=p>);</span><span class=w>
+</span><span class=w>        </span><span class=n>StateStruct</span>::<span class=n>no_input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>hallway</span><span class=p>)</span><span class=w>
+</span><span class=w>    </span><span class=p>}</span><span class=w>
+</span><span class=w>
+</span><span class=w>    </span><span class=k>fn</span> <span class=nf>hallway</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=bp>self</span><span class=p>)</span><span class=w> </span>-&gt; <span class=nc>StateStruct</span><span class=o>&lt;</span><span class=n>Game</span><span class=o>&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>        </span><span class=k>match</span><span class=w> </span><span class=o>&amp;</span><span class=bp>self</span><span class=p>.</span><span class=n>last_command</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=o>&amp;</span><span class=kt>str</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>            </span><span class=s>&#34;&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;You are in a hallway. You can inspect it, go left or right.&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>hallway</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=s>&#34;inspect&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=w>
+</span><span class=w>                    </span><span class=s>&#34;You are in a hallway. It&#39;s unremarkable. You can go either right or left.&#34;</span><span class=w>
+</span><span class=w>                </span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>hallway</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=s>&#34;go left&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;You run left until you reach a dead end.&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=k>if</span><span class=w> </span><span class=o>!</span><span class=bp>self</span><span class=p>.</span><span class=n>player</span><span class=p>.</span><span class=n>has_key</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                    </span><span class=n>StateStruct</span>::<span class=n>no_input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>key_room_with_key</span><span class=p>)</span><span class=w>
+</span><span class=w>                </span><span class=p>}</span><span class=w> </span><span class=k>else</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                    </span><span class=n>StateStruct</span>::<span class=n>no_input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>key_room_empty</span><span class=p>)</span><span class=w>
+</span><span class=w>                </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=s>&#34;go right&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;You run left until you reach a dead end.&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=k>if</span><span class=w> </span><span class=bp>self</span><span class=p>.</span><span class=n>door_locked</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                    </span><span class=n>StateStruct</span>::<span class=n>no_input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>door_room_locked</span><span class=p>)</span><span class=w>
+</span><span class=w>                </span><span class=p>}</span><span class=w> </span><span class=k>else</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                    </span><span class=n>StateStruct</span>::<span class=n>no_input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>door_room_unlocked</span><span class=p>)</span><span class=w>
+</span><span class=w>                </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=n>_</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;I don&#39;t know how to do that! What do you want to do?&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>hallway</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>        </span><span class=p>}</span><span class=w>
+</span><span class=w>    </span><span class=p>}</span><span class=w>
+</span><span class=w>
+</span><span class=w>    </span><span class=k>fn</span> <span class=nf>key_room_with_key</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=bp>self</span><span class=p>)</span><span class=w> </span>-&gt; <span class=nc>StateStruct</span><span class=o>&lt;</span><span class=n>Game</span><span class=o>&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>        </span><span class=k>match</span><span class=w> </span><span class=o>&amp;</span><span class=bp>self</span><span class=p>.</span><span class=n>last_command</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=o>&amp;</span><span class=kt>str</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>            </span><span class=s>&#34;&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;You are in a dark room.&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>key_room_with_key</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=s>&#34;inspect&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;You are in a dark room. You see a key on the floor.&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>key_room_with_key</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=s>&#34;pick up the key&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;You gingerly pick up the key and store it for later use.&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=bp>self</span><span class=p>.</span><span class=n>player</span><span class=p>.</span><span class=n>has_key</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=kc>true</span><span class=p>;</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>key_room_empty</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=s>&#34;go back&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;You go back in the hallway.&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>no_input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>hallway</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=n>_</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;I don&#39;t know how to do that! What do you want to do?&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>key_room_with_key</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>        </span><span class=p>}</span><span class=w>
+</span><span class=w>    </span><span class=p>}</span><span class=w>
+</span><span class=w>
+</span><span class=w>    </span><span class=k>fn</span> <span class=nf>key_room_empty</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=bp>self</span><span class=p>)</span><span class=w> </span>-&gt; <span class=nc>StateStruct</span><span class=o>&lt;</span><span class=n>Game</span><span class=o>&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>        </span><span class=k>match</span><span class=w> </span><span class=o>&amp;</span><span class=bp>self</span><span class=p>.</span><span class=n>last_command</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=o>&amp;</span><span class=kt>str</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>            </span><span class=s>&#34;&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;You are in a dark room.&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>key_room_empty</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=s>&#34;inspect&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;You look around but there is nothing worth mentioning.&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>key_room_empty</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=s>&#34;pick up the key&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;There is no key to pick up!&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>key_room_empty</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=s>&#34;go back&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;You go back in the hallway.&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>no_input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>hallway</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=n>_</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;I don&#39;t know how to do that! What do you want to do?&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>key_room_empty</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>        </span><span class=p>}</span><span class=w>
+</span><span class=w>    </span><span class=p>}</span><span class=w>
+</span><span class=w>
+</span><span class=w>    </span><span class=k>fn</span> <span class=nf>door_room_locked</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=bp>self</span><span class=p>)</span><span class=w> </span>-&gt; <span class=nc>StateStruct</span><span class=o>&lt;</span><span class=n>Game</span><span class=o>&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>        </span><span class=k>match</span><span class=w> </span><span class=o>&amp;</span><span class=bp>self</span><span class=p>.</span><span class=n>last_command</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=o>&amp;</span><span class=kt>str</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>            </span><span class=s>&#34;&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;You are in a dimly lit room.&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>door_room_locked</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=s>&#34;inspect&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=w>
+</span><span class=w>                    </span><span class=s>&#34;You are in a dimly lit room. You notice a sickly looking fountain and a door.&#34;</span><span class=w>
+</span><span class=w>                </span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>door_room_locked</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=s>&#34;drink from the fountain&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;You drink the water and drop dead immediately. Tough luck!&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=bp>self</span><span class=p>.</span><span class=n>reset</span><span class=p>();</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>no_input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>start</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=s>&#34;unlock the door&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=k>if</span><span class=w> </span><span class=bp>self</span><span class=p>.</span><span class=n>player</span><span class=p>.</span><span class=n>has_key</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                    </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;You use your key to unlock the door.&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                    </span><span class=bp>self</span><span class=p>.</span><span class=n>door_locked</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=kc>false</span><span class=p>;</span><span class=w>
+</span><span class=w>                    </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>door_room_unlocked</span><span class=p>)</span><span class=w>
+</span><span class=w>                </span><span class=p>}</span><span class=w> </span><span class=k>else</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                    </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;You do not have a key to use!&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                    </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>door_room_locked</span><span class=p>)</span><span class=w>
+</span><span class=w>                </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=s>&#34;open the door&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;The door is locked! You must find a key first!&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>door_room_locked</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=s>&#34;go back&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;You go back in the hallway.&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>no_input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>hallway</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=n>_</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;I don&#39;t know how to do that! What do you want to do?&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>door_room_locked</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>        </span><span class=p>}</span><span class=w>
+</span><span class=w>    </span><span class=p>}</span><span class=w>
+</span><span class=w>
+</span><span class=w>    </span><span class=k>fn</span> <span class=nf>door_room_unlocked</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=bp>self</span><span class=p>)</span><span class=w> </span>-&gt; <span class=nc>StateStruct</span><span class=o>&lt;</span><span class=n>Game</span><span class=o>&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>        </span><span class=k>match</span><span class=w> </span><span class=o>&amp;</span><span class=bp>self</span><span class=p>.</span><span class=n>last_command</span><span class=w> </span><span class=k>as</span><span class=w> </span><span class=o>&amp;</span><span class=kt>str</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>            </span><span class=s>&#34;&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;You are in a dimly lit room.&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>door_room_unlocked</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=s>&#34;inspect&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=w>
+</span><span class=w>                    </span><span class=s>&#34;You are in a dimly lit room. You notice a sickly looking fountain and an already unlocked door.&#34;</span><span class=w>
+</span><span class=w>                </span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>door_room_unlocked</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=s>&#34;drink from the fountain&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;You drink the water and drop dead immediately. Tough luck!&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=bp>self</span><span class=p>.</span><span class=n>reset</span><span class=p>();</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>no_input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>start</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=s>&#34;unlock the door&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;The door is already unlocked!&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>door_room_unlocked</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=s>&#34;open the door&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;You open the door and escape the dungeon!&#34;</span><span class=p>,);</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>no_input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>end</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=s>&#34;go back&#34;</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;You go back in the hallway.&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>no_input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>hallway</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>            </span><span class=n>_</span><span class=w> </span><span class=o>=&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>                </span><span class=n>println</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;I don&#39;t know how to do that! What do you want to do?&#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>                </span><span class=n>StateStruct</span>::<span class=n>input_required</span><span class=p>(</span><span class=n>Self</span>::<span class=n>door_room_unlocked</span><span class=p>)</span><span class=w>
+</span><span class=w>            </span><span class=p>}</span><span class=w>
+</span><span class=w>        </span><span class=p>}</span><span class=w>
+</span><span class=w>    </span><span class=p>}</span><span class=w>
+</span><span class=w></span><span class=p>}</span><span class=w>
+</span><span class=w>
+</span><span class=w></span><span class=k>fn</span> <span class=nf>main</span><span class=p>()</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>    </span><span class=k>use</span><span class=w> </span><span class=n>std</span>::<span class=n>io</span>::<span class=n>Write</span><span class=p>;</span><span class=w>
+</span><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>game</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>Game</span>::<span class=n>default</span><span class=p>();</span><span class=w>
+</span><span class=w>    </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>sf</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>StateStruct</span>::<span class=n>no_input_required</span><span class=p>(</span><span class=n>Game</span>::<span class=n>start</span><span class=p>);</span><span class=w>
+</span><span class=w>
+</span><span class=w>    </span><span class=n>sf</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>sf</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=n>game</span><span class=p>);</span><span class=w>
+</span><span class=w>
+</span><span class=w>    </span><span class=k>while</span><span class=w> </span><span class=o>!</span><span class=n>sf</span><span class=p>.</span><span class=n>completed</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>        </span><span class=c1>// println!(&#34;game == {:?}&#34;, game);
+</span><span class=c1></span><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=n>sf</span><span class=p>.</span><span class=n>requires_input</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>            </span><span class=kd>let</span><span class=w> </span><span class=k>mut</span><span class=w> </span><span class=n>buffer</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=nb>String</span>::<span class=n>new</span><span class=p>();</span><span class=w>
+</span><span class=w>            </span><span class=n>print</span><span class=o>!</span><span class=p>(</span><span class=s>&#34;&gt; &#34;</span><span class=p>);</span><span class=w>
+</span><span class=w>            </span>::<span class=n>std</span>::<span class=n>io</span>::<span class=n>stdout</span><span class=p>().</span><span class=n>flush</span><span class=p>().</span><span class=n>unwrap</span><span class=p>();</span><span class=w>
+</span><span class=w>            </span>::<span class=n>std</span>::<span class=n>io</span>::<span class=n>stdin</span><span class=p>().</span><span class=n>read_line</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=n>buffer</span><span class=p>).</span><span class=n>unwrap</span><span class=p>();</span><span class=w>
+</span><span class=w>            </span><span class=n>game</span><span class=p>.</span><span class=n>last_command</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>buffer</span><span class=p>[</span><span class=mi>0</span><span class=p>..</span><span class=n>buffer</span><span class=p>.</span><span class=n>len</span><span class=p>()</span><span class=w> </span><span class=o>-</span><span class=w> </span><span class=mi>1</span><span class=p>].</span><span class=n>to_owned</span><span class=p>();</span><span class=w>
+</span><span class=w>        </span><span class=p>}</span><span class=w> </span><span class=k>else</span><span class=w> </span><span class=p>{</span><span class=w>
+</span><span class=w>            </span><span class=n>game</span><span class=p>.</span><span class=n>last_command</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=s>&#34;&#34;</span><span class=p>.</span><span class=n>to_owned</span><span class=p>();</span><span class=w>
+</span><span class=w>        </span><span class=p>}</span><span class=w>
+</span><span class=w>        </span><span class=n>sf</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>sf</span><span class=p>(</span><span class=o>&amp;</span><span class=k>mut</span><span class=w> </span><span class=n>game</span><span class=p>);</span><span class=w>
+</span><span class=w>    </span><span class=p>}</span><span class=w>
+</span><span class=w></span><span class=p>}</span><span class=w>
+</span></code></pre></td></tr></table>
+</div>
+</div><hr>
+<p>Happy Coding,</p>
+<p><strong>Francesco Cogno</strong></p>
+</div>
+<footer class=post-footer>
+<ul class=post-tags>
+<li><a href=https://blog.mindflavor.it/tags/rust/>rust</a></li>
+<li><a href=https://blog.mindflavor.it/tags/statemachine/>statemachine</a></li>
+<li><a href=https://blog.mindflavor.it/tags/codeforfun/>codeforfun</a></li>
+</ul>
+<nav class=paginav>
+<a class=prev href=https://blog.mindflavor.it/posts/rust-builder-pattern-with-types/>
+<span class=title>« Prev Page</span>
+<br>
+<span>Rust builder pattern with types</span>
+</a>
+</nav>
+<div class=share-buttons>
+<a target=_blank rel="noopener noreferrer" aria-label="share Let's build Zork using Rust! on twitter" href="https://twitter.com/intent/tweet/?text=Let%27s%20build%20Zork%20using%20Rust%21&url=https%3a%2f%2fblog.mindflavor.it%2fposts%2fzork-rust%2f&hashtags=rust%2cstatemachine%2ccodeforfun"><svg viewBox="0 0 512 512"><path d="M449.446.0C483.971.0 512 28.03 512 62.554v386.892C512 483.97 483.97 512 449.446 512H62.554c-34.524.0-62.554-28.03-62.554-62.554V62.554c0-34.524 28.029-62.554 62.554-62.554h386.892zM195.519 424.544c135.939.0 210.268-112.643 210.268-210.268.0-3.218.0-6.437-.153-9.502 14.406-10.421 26.973-23.448 36.935-38.314-13.18 5.824-27.433 9.809-42.452 11.648 15.326-9.196 26.973-23.602 32.49-40.92-14.252 8.429-30.038 14.56-46.896 17.931-13.487-14.406-32.644-23.295-53.946-23.295-40.767.0-73.87 33.104-73.87 73.87.0 5.824.613 11.494 1.992 16.858-61.456-3.065-115.862-32.49-152.337-77.241-6.284 10.881-9.962 23.601-9.962 37.088.0 25.594 13.027 48.276 32.95 61.456-12.107-.307-23.448-3.678-33.41-9.196v.92c0 35.862 25.441 65.594 59.311 72.49-6.13 1.686-12.72 2.606-19.464 2.606-4.751.0-9.348-.46-13.946-1.38 9.349 29.426 36.628 50.728 68.965 51.341-25.287 19.771-57.164 31.571-91.8 31.571-5.977.0-11.801-.306-17.625-1.073 32.337 21.15 71.264 33.41 112.95 33.41z"/></svg>
+</a>
+<a target=_blank rel="noopener noreferrer" aria-label="share Let's build Zork using Rust! on linkedin" href="https://www.linkedin.com/shareArticle?mini=true&url=https%3a%2f%2fblog.mindflavor.it%2fposts%2fzork-rust%2f&title=Let%27s%20build%20Zork%20using%20Rust%21&summary=Let%27s%20build%20Zork%20using%20Rust%21&source=https%3a%2f%2fblog.mindflavor.it%2fposts%2fzork-rust%2f"><svg viewBox="0 0 512 512"><path d="M449.446.0C483.971.0 512 28.03 512 62.554v386.892C512 483.97 483.97 512 449.446 512H62.554c-34.524.0-62.554-28.03-62.554-62.554V62.554c0-34.524 28.029-62.554 62.554-62.554h386.892zM160.461 423.278V197.561h-75.04v225.717h75.04zm270.539.0V293.839c0-69.333-37.018-101.586-86.381-101.586-39.804.0-57.634 21.891-67.617 37.266v-31.958h-75.021c.995 21.181.0 225.717.0 225.717h75.02V297.222c0-6.748.486-13.492 2.474-18.315 5.414-13.475 17.767-27.434 38.494-27.434 27.135.0 38.007 20.707 38.007 51.037v120.768H431zM123.448 88.722C97.774 88.722 81 105.601 81 127.724c0 21.658 16.264 39.002 41.455 39.002h.484c26.165.0 42.452-17.344 42.452-39.002-.485-22.092-16.241-38.954-41.943-39.002z"/></svg>
+</a>
+<a target=_blank rel="noopener noreferrer" aria-label="share Let's build Zork using Rust! on reddit" href="https://reddit.com/submit?url=https%3a%2f%2fblog.mindflavor.it%2fposts%2fzork-rust%2f&title=Let%27s%20build%20Zork%20using%20Rust%21"><svg viewBox="0 0 512 512"><path d="M449.446.0C483.971.0 512 28.03 512 62.554v386.892C512 483.97 483.97 512 449.446 512H62.554c-34.524.0-62.554-28.03-62.554-62.554V62.554c0-34.524 28.029-62.554 62.554-62.554h386.892zM446 265.638c0-22.964-18.616-41.58-41.58-41.58-11.211.0-21.361 4.457-28.841 11.666-28.424-20.508-67.586-33.757-111.204-35.278l18.941-89.121 61.884 13.157c.756 15.734 13.642 28.29 29.56 28.29 16.407.0 29.706-13.299 29.706-29.701.0-16.403-13.299-29.702-29.706-29.702-11.666.0-21.657 6.792-26.515 16.578l-69.105-14.69c-1.922-.418-3.939-.042-5.585 1.036-1.658 1.073-2.811 2.761-3.224 4.686l-21.152 99.438c-44.258 1.228-84.046 14.494-112.837 35.232-7.468-7.164-17.589-11.591-28.757-11.591-22.965.0-41.585 18.616-41.585 41.58.0 16.896 10.095 31.41 24.568 37.918-.639 4.135-.99 8.328-.99 12.576.0 63.977 74.469 115.836 166.33 115.836s166.334-51.859 166.334-115.836c0-4.218-.347-8.387-.977-12.493 14.564-6.47 24.735-21.034 24.735-38.001zM326.526 373.831c-20.27 20.241-59.115 21.816-70.534 21.816-11.428.0-50.277-1.575-70.522-21.82-3.007-3.008-3.007-7.882.0-10.889 3.003-2.999 7.882-3.003 10.885.0 12.777 12.781 40.11 17.317 59.637 17.317 19.522.0 46.86-4.536 59.657-17.321 3.016-2.999 7.886-2.995 10.885.008 3.008 3.011 3.003 7.882-.008 10.889zm-5.23-48.781c-16.373.0-29.701-13.324-29.701-29.698.0-16.381 13.328-29.714 29.701-29.714 16.378.0 29.706 13.333 29.706 29.714.0 16.374-13.328 29.698-29.706 29.698zM160.91 295.348c0-16.381 13.328-29.71 29.714-29.71 16.369.0 29.689 13.329 29.689 29.71.0 16.373-13.32 29.693-29.689 29.693-16.386.0-29.714-13.32-29.714-29.693z"/></svg>
+</a>
+<a target=_blank rel="noopener noreferrer" aria-label="share Let's build Zork using Rust! on facebook" href="https://facebook.com/sharer/sharer.php?u=https%3a%2f%2fblog.mindflavor.it%2fposts%2fzork-rust%2f"><svg viewBox="0 0 512 512"><path d="M449.446.0C483.971.0 512 28.03 512 62.554v386.892C512 483.97 483.97 512 449.446 512H342.978V319.085h66.6l12.672-82.621h-79.272v-53.617c0-22.603 11.073-44.636 46.58-44.636H425.6v-70.34s-32.71-5.582-63.982-5.582c-65.288.0-107.96 39.569-107.96 111.204v62.971h-72.573v82.621h72.573V512h-191.104c-34.524.0-62.554-28.03-62.554-62.554V62.554c0-34.524 28.029-62.554 62.554-62.554h386.892z"/></svg>
+</a>
+<a target=_blank rel="noopener noreferrer" aria-label="share Let's build Zork using Rust! on whatsapp" href="https://api.whatsapp.com/send?text=Let%27s%20build%20Zork%20using%20Rust%21%20-%20https%3a%2f%2fblog.mindflavor.it%2fposts%2fzork-rust%2f"><svg viewBox="0 0 512 512"><path d="M449.446.0C483.971.0 512 28.03 512 62.554v386.892C512 483.97 483.97 512 449.446 512H62.554c-34.524.0-62.554-28.03-62.554-62.554V62.554c0-34.524 28.029-62.554 62.554-62.554h386.892zm-58.673 127.703c-33.842-33.881-78.847-52.548-126.798-52.568-98.799.0-179.21 80.405-179.249 179.234-.013 31.593 8.241 62.428 23.927 89.612l-25.429 92.884 95.021-24.925c26.181 14.28 55.659 21.807 85.658 21.816h.074c98.789.0 179.206-80.413 179.247-179.243.018-47.895-18.61-92.93-52.451-126.81zM263.976 403.485h-.06c-26.734-.01-52.954-7.193-75.828-20.767l-5.441-3.229-56.386 14.792 15.05-54.977-3.542-5.637c-14.913-23.72-22.791-51.136-22.779-79.287.033-82.142 66.867-148.971 149.046-148.971 39.793.014 77.199 15.531 105.329 43.692 28.128 28.16 43.609 65.592 43.594 105.4-.034 82.149-66.866 148.983-148.983 148.984zm81.721-111.581c-4.479-2.242-26.499-13.075-30.604-14.571-4.105-1.495-7.091-2.241-10.077 2.241-2.986 4.483-11.569 14.572-14.182 17.562-2.612 2.988-5.225 3.364-9.703 1.12-4.479-2.241-18.91-6.97-36.017-22.23C231.8 264.15 222.81 249.484 220.198 245s-.279-6.908 1.963-9.14c2.016-2.007 4.48-5.232 6.719-7.847 2.24-2.615 2.986-4.484 4.479-7.472 1.493-2.99.747-5.604-.374-7.846-1.119-2.241-10.077-24.288-13.809-33.256-3.635-8.733-7.327-7.55-10.077-7.688-2.609-.13-5.598-.158-8.583-.158-2.986.0-7.839 1.121-11.944 5.604-4.105 4.484-15.675 15.32-15.675 37.364.0 22.046 16.048 43.342 18.287 46.332 2.24 2.99 31.582 48.227 76.511 67.627 10.685 4.615 19.028 7.371 25.533 9.434 10.728 3.41 20.492 2.929 28.209 1.775 8.605-1.285 26.499-10.833 30.231-21.295 3.732-10.464 3.732-19.431 2.612-21.298-1.119-1.869-4.105-2.99-8.583-5.232z"/></svg>
+</a>
+<a target=_blank rel="noopener noreferrer" aria-label="share Let's build Zork using Rust! on telegram" href="https://telegram.me/share/url?text=Let%27s%20build%20Zork%20using%20Rust%21&url=https%3a%2f%2fblog.mindflavor.it%2fposts%2fzork-rust%2f"><svg viewBox="2 2 28 28"><path d="M26.49 29.86H5.5a3.37 3.37.0 01-2.47-1 3.35 3.35.0 01-1-2.47V5.48A3.36 3.36.0 013 3 3.37 3.37.0 015.5 2h21A3.38 3.38.0 0129 3a3.36 3.36.0 011 2.46V26.37a3.35 3.35.0 01-1 2.47 3.38 3.38.0 01-2.51 1.02zm-5.38-6.71a.79.79.0 00.85-.66L24.73 9.24a.55.55.0 00-.18-.46.62.62.0 00-.41-.17q-.08.0-16.53 6.11a.59.59.0 00-.41.59.57.57.0 00.43.52l4 1.24 1.61 4.83a.62.62.0 00.63.43.56.56.0 00.4-.17L16.54 20l4.09 3A.9.9.0 0021.11 23.15zM13.8 20.71l-1.21-4q8.72-5.55 8.78-5.55c.15.0.23.0.23.16a.18.18.0 010 .06s-2.51 2.3-7.52 6.8z"/></svg>
+</a>
+</div>
+</footer>
+</article>
+</main>
+<footer class=footer>
+<span>&copy; 2021 <a href=https://blog.mindflavor.it>MindFlavor's blog</a></span>
+<span>
+Powered by
+<a href=https://gohugo.io/ rel="noopener noreferrer" target=_blank>Hugo</a> &
+        <a href=https://git.io/hugopapermod rel=noopener target=_blank>PaperMod</a>
+</span>
+</footer>
+<a href=#top aria-label="go to top" title="Go to Top (Alt + G)" class=top-link id=top-link accesskey=g><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentcolor"><path d="M12 6H0l6-6z"/></svg>
+</a>
+<script>let menu=document.getElementById('menu');menu.scrollLeft=localStorage.getItem("menu-scroll-position"),menu.onscroll=function(){localStorage.setItem("menu-scroll-position",menu.scrollLeft)},document.querySelectorAll('a[href^="#"]').forEach(a=>{a.addEventListener("click",function(b){b.preventDefault();var a=this.getAttribute("href").substr(1);window.matchMedia('(prefers-reduced-motion: reduce)').matches?document.querySelector(`[id='${decodeURIComponent(a)}']`).scrollIntoView():document.querySelector(`[id='${decodeURIComponent(a)}']`).scrollIntoView({behavior:"smooth"}),a==="top"?history.replaceState(null,null," "):history.pushState(null,null,`#${a}`)})})</script>
+<script>var mybutton=document.getElementById("top-link");window.onscroll=function(){document.body.scrollTop>800||document.documentElement.scrollTop>800?(mybutton.style.visibility="visible",mybutton.style.opacity="1"):(mybutton.style.visibility="hidden",mybutton.style.opacity="0")}</script>
+<script>document.getElementById("theme-toggle").addEventListener("click",()=>{document.body.className.includes("dark")?(document.body.classList.remove('dark'),localStorage.setItem("pref-theme",'light')):(document.body.classList.add('dark'),localStorage.setItem("pref-theme",'dark'))})</script>
+<script>document.querySelectorAll('pre > code').forEach(b=>{const c=b.parentNode.parentNode,a=document.createElement('button');a.classList.add('copy-code'),a.innerText='copy';function d(){a.innerText='copied!',setTimeout(()=>{a.innerText='copy'},2e3)}a.addEventListener('click',e=>{if('clipboard'in navigator){navigator.clipboard.writeText(b.textContent),d();return}const a=document.createRange();a.selectNodeContents(b);const c=window.getSelection();c.removeAllRanges(),c.addRange(a);try{document.execCommand('copy'),d()}catch(a){}c.removeRange(a)}),c.classList.contains("highlight")?c.appendChild(a):c.parentNode.firstChild==c||(b.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName=="TABLE"?b.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(a):b.parentNode.appendChild(a))})</script>
+</body>
+</html>

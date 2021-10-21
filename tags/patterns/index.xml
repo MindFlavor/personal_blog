@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>patterns on MindFlavor&#39;s blog</title>
+    <link>https://blog.mindflavor.it/tags/patterns/</link>
+    <description>Recent content in patterns on MindFlavor&#39;s blog</description>
+    <image>
+      <url>https://blog.mindflavor.it/static/images/</url>
+      <link>https://blog.mindflavor.it/static/images/</link>
+    </image>
+    <generator>Hugo -- gohugo.io</generator>
+    <lastBuildDate>Thu, 26 Jul 2018 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.mindflavor.it/tags/patterns/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Rust builder pattern with types</title>
+      <link>https://blog.mindflavor.it/posts/rust-builder-pattern-with-types/</link>
+      <pubDate>Thu, 26 Jul 2018 00:00:00 +0000</pubDate>
+      
+      <guid>https://blog.mindflavor.it/posts/rust-builder-pattern-with-types/</guid>
+      <description>An implementation of the builder pattern in Rust.</description>
+    </item>
+    
+  </channel>
+</rss>
