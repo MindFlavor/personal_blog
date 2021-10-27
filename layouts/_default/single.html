@@ -1,0 +1,78 @@
+{{- define "main" }}
+
+<article class="post-single">
+  <header class="post-header">
+    {{ partial "breadcrumbs.html" . }}
+    <h1 class="post-title">
+      {{ .Title }}
+      {{- if .Draft }}<sup><span class="entry-isdraft">&nbsp;&nbsp;[draft]</span></sup>{{- end }}
+    </h1>
+    {{- if .Description }}
+    <div class="post-description">
+      {{ .Description }}
+    </div>
+    {{- end }}
+    {{- if not (.Param "hideMeta") }}
+    <div class="post-meta">
+      {{- partial "post_meta.html" . -}}
+      {{- partial "translation_list.html" . -}}
+      {{- partial "edit_post.html" . -}}
+      &nbsp;|&nbsp; <a href="#comments">Comments</a>
+    </div>
+    {{- end }}
+
+  </header>
+  {{- $isHidden := .Params.cover.hidden | default .Site.Params.cover.hiddenInSingle | default .Site.Params.cover.hidden }}
+  {{- partial "cover.html" (dict "cxt" . "IsHome" false "isHidden" $isHidden) }}
+  {{- if (.Param "ShowToc") }}
+  {{- partial "toc.html" . }}
+  {{- end }}
+
+  <div class="disclaimer"><b>Disclaimer</b>: This site should not require JavaScript (comments are provided by <a href="https://utteranc.es/">Utterances</a> so if you disable JS they won't show directly here but you can still find them in the <a href="https://github.com/MindFlavor/personal_blog">GitHub repo</a>). It's basically static anyway. Also, I do not care about Google Analytics and "friends". I should not collect anything about you. If you suspect this site does it anyway it means I have misconfigured Hugo: please open an issue to make me wiser. Lastly, I do not host this site directly: what GitHub pages does with your IP is beyond my control. Also, opinions are my own. Not my employer's nor my wife's.
+  <br/>Ah, if you want to, say thank you by donating to the Wikimedia foundation. They are heroes of the free internet.</div>
+
+  <br/>
+
+  {{- if .Content }}
+  <div class="post-content">
+    {{- if not (.Param "disableAnchoredHeadings") }}
+    {{- partial "anchored_headings.html" .Content -}}
+    {{- else }}{{ .Content }}{{ end }}
+  </div>
+  {{- end }}
+
+  <a href="#comments">Comments</a>
+
+  <footer class="post-footer">
+    {{- if .Params.tags }}
+    <ul class="post-tags">
+      {{- range ($.GetTerms "tags") }}
+      <li><a href="{{ .Permalink }}">{{ .LinkTitle }}</a></li>
+      {{- end }}
+    </ul>
+    {{- end }}
+    {{- if (.Param "ShowPostNavLinks") }}
+    {{- partial "post_nav_links.html" . }}
+    {{- end }}
+    {{- if (and .Site.Params.ShowShareButtons (ne .Params.disableShare true)) }}
+    {{- partial "share_icons.html" . -}}
+    {{- end }}
+  </footer>
+
+  {{- if (.Param "comments") }}
+  {{- partial "comments.html" . }}
+  {{- end }}
+
+</article>
+
+<h2 id="comments">Comments</h2>
+<script src="https://utteranc.es/client.js"
+        repo="mindflavor/personal_blog"
+        issue-term="pathname"
+        label="utterances"
+        theme="preferred-color-scheme"
+        crossorigin="anonymous"
+        async>
+</script>
+
+{{- end }}{{/* end main */}}
